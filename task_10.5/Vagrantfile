@@ -1,0 +1,31 @@
+$script = <<SCRIPT
+  # Add PostgreSQL Repos
+  sudo mkdir -p /etc/apt/sources.list.d/
+  sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt/ bionic-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+  wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+
+  # Install PostgreSQL 10
+  sudo apt-get update
+  sudo apt-get -y install postgresql-10
+
+  # Configure PostgreSQL 10
+  sudo sed -i "s/#listen_address.*/listen_addresses '*'/" /etc/postgresql/10/main/postgresql.conf
+
+  sudo cat >> /etc/postgresql/10/main/pg_hba.conf <<EOF
+  # Accept all IPv4 connections - FOR DEVELOPMENT ONLY!!!
+  host    all         all         0.0.0.0/0             md5
+  EOF
+
+  # Create Role and login
+  sudo su postgres -c "psql -c \"CREATE ROLE vagrant SUPERUSER LOGIN PASSWORD 'vagrant'\" "
+
+  # Create database
+  sudo su postgres -c "createdb -E UTF8 -T template0 --locale=en_US.utf8 -O vagrant database"
+SCRIPT
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "generic/ubuntu1804"
+  config.vm.network :forwarded_port, guest: 5432, host: 5433
+  config.vm.network "public_network", :dev => "enp42s0"
+  config.vm.provision "shell", inline: $script
+end
